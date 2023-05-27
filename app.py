@@ -16,6 +16,7 @@ import smtplib
 from email.mime.text import MIMEText
 from flask_login import current_user, login_required
 from flask_login import logout_user
+from datetime import datetime
 
 
 app = Flask(__name__)
@@ -65,6 +66,26 @@ class ChangePasswordForm(FlaskForm):
     new_password = PasswordField('Nowe hasło', validators=[DataRequired(), Length(min=8)])
     confirm_password = PasswordField('Potwierdź nowe hasło', validators=[DataRequired(), EqualTo('new_password')])
     submit = SubmitField('Zmień hasło')
+
+    class Photo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    image_url = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    photo_id = db.Column(db.Integer, db.ForeignKey('photo.id'), nullable=False)
+    text = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Like(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    photo_id = db.Column(db.Integer, db.ForeignKey('photo.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 # Routes
