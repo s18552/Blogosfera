@@ -1,0 +1,76 @@
+<!-- base.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <style>
+        .dropdown-list {
+            display: none;
+        }
+        .dropdown-list.show {
+            display: block;
+        }
+        .user-email {
+            cursor: pointer;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const userEmail = document.querySelector('.user-email');
+            const dropdownList = document.querySelector('.dropdown-list');
+            
+            userEmail.addEventListener('click', function() {
+                dropdownList.classList.toggle('show');
+            });
+        });
+    </script>
+</head>
+<body>
+    <header class="bg-dark text-white py-3">
+        <div class="container d-flex justify-content-between align-items-center">
+            <h1 class="text-center">My App</h1>
+            <nav class="text-center">
+                <ul class="nav nav-pills justify-content-center">
+                    <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                    {% if not current_user.is_authenticated %}
+                    <li class="nav-item"><a class="nav-link" href="/register">Register</a></li>
+                    {% endif %}
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item"><a class="nav-link" href="/logout">Log Out</a></li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="/login">Log In</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% if current_user.is_authenticated %}
+            <div class="user-info text-white">
+                <div class="dropdown">
+                    <a class="btn btn-link user-email" data-bs-toggle="dropdown" aria-expanded="false">{{ current_user.email }}</a>
+                    <ul class="dropdown-menu dropdown-list" aria-labelledby="dropdownMenuButton">
+                        <li><a class="dropdown-item" href="/change_password">Zmiana hasła</a></li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+    
+    <div class="container mt-4">
+        <div class="content">
+            <!-- Zawartość strony zostanie wstawiona tutaj -->
+            {% block content %}
+            {% endblock %}
+        </div>
+    </div>
+
+    <footer class="fixed-bottom bg-dark text-white py-3">
+        <div class="container text-center">
+            <p>My App &copy; 2023</p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

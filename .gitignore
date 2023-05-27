@@ -1,0 +1,16 @@
+venv/
+ENV/
+__pycache__/
+*.db
+*.log
+htmlcov/
+pytest_cache/
+.env
+.idea/
+.vscode/
+*.pyc
+*.pyo
+*.pyd
+*~
+*.bak
+*.swp
