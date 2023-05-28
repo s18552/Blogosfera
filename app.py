@@ -6,7 +6,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Email, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
-from wtforms import StringField, PasswordField
+from wtforms import StringField, PasswordField, TextAreaField
 from flask import render_template, redirect, flash, request, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms.validators import Length, EqualTo
@@ -16,12 +16,20 @@ import smtplib
 from email.mime.text import MIMEText
 from flask_login import current_user, login_required
 from flask_login import logout_user
+from datetime import datetime
+from flask_migrate import Migrate
+from flask import render_template
+
+
+
+
 
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SECRET_KEY'] = 'secret-key'
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -67,11 +75,44 @@ class ChangePasswordForm(FlaskForm):
     submit = SubmitField('Zmień hasło')
 
 
-# Routes
-@app.route('/')
-@login_required
-def home():
-    return render_template('home.html')
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    author = db.relationship('User', backref='posts')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Comment(db.Model):
+    __tablename__ = 'comment'
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
+
+    author = db.relationship('User', backref=db.backref('comments', lazy='dynamic'))
+    post = db.relationship('Post', backref=db.backref('comments', lazy='dynamic'))
+
+    def __init__(self, content, author, post):
+        self.content = content
+        self.author = author
+        self.post = post
+
+
+
+
+class CreatePostForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired()])
+    content = TextAreaField('Content', validators=[DataRequired()])
+    submit = SubmitField('Create Post')
+
+
+class CommentForm(FlaskForm):
+    content = TextAreaField('Comment', validators=[DataRequired()])
+    submit = SubmitField('Submit Comment')
+
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -204,14 +245,82 @@ def send_reset_password_email(email, new_password):
     except Exception as e:
         print("Error sending e-mail:", str(e))
 
-
-
-
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect('/login')
+
+@app.route('/create_post', methods=['GET', 'POST'])
+@login_required
+def create_post():
+    form = CreatePostForm()
+    if form.validate_on_submit():
+        post = Post(title=form.title.data, content=form.content.data, author=current_user)
+        db.session.add(post)
+        db.session.commit()
+        flash('Post created successfully!', 'success')
+        return redirect('/')
+    return render_template('create_post.html', form=form)
+
+
+# @app.route('/post/<int:post_id>', methods=['GET', 'POST'])
+# def view_post(post_id):
+#     post = Post.query.get_or_404(post_id)
+#     comment_form = CommentForm()
+#     if comment_form.validate_on_submit():
+#         comment = Comment(content=comment_form.content.data, author=current_user, post=post)
+#         db.session.add(comment)
+#         db.session.commit()
+#         flash('Comment added successfully!', 'success')
+#         return redirect(url_for('view_post', post_id=post.id))
+#     return render_template('view_post.html', post=post, comment_form=comment_form)
+
+@app.route('/post/<int:post_id>')
+def view_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    return render_template('post.html', post=post)
+
+
+
+@app.route('/add_comment/<int:post_id>', methods=['POST'])
+@login_required
+def add_comment(post_id):
+    post = Post.query.get_or_404(post_id)
+    form = CommentForm()
+    if form.validate_on_submit():
+        comment = Comment(content=form.content.data, author=current_user, post=post)  # Ustawienie autora komentarza
+        db.session.add(comment)
+        db.session.commit()
+        flash('Comment added successfully', 'success')
+    else:
+        flash_errors(form)
+    return redirect(url_for('home'))
+
+
+
+def flash_errors(form):
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f'Error in the {getattr(form, field).label.text}: {error}', 'danger')
+
+
+
+
+@app.route('/')
+def home():
+    # Pobierz listę postów
+    posts = Post.query.all()
+
+    # Utwórz formularz komentarza
+    comment_form = CommentForm()
+
+    return render_template('home.html', posts=posts, comment_form=comment_form)
+
+
+
+
+
 
 
 # Run the application

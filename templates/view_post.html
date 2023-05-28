@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="post">
+        <div class="post-content">
+          <h2>{{ post.title }}</h2>
+          <p>{{ post.content }}</p>
+          <p>Author: {{ post.author.email }}</p>
+          <p>Created At: {{ post.created_at }}</p>
+        </div>
+      </div>
+      <hr>
+      <div class="comments">
+        <h3>Comments:</h3>
+        {% for comment in post.comments %}
+          <div class="comment">
+            <p><strong>{{ comment.author.email }}</strong> said:</p>
+            <p>{{ comment.content }}</p>
+            <p class="comment-timestamp">Posted At: {{ comment.timestamp }}</p>
+          </div>
+        {% endfor %}
+      </div>
+      <form method="POST" action="{{ url_for('add_comment', post_id=post.id) }}" enctype="multipart/form-data">
+        {{ comment_form.hidden_tag() }}
+        <input type="hidden" name="post_id" value="{{ post.id }}">
+        <div class="form-group">
+          {{ comment_form.content.label(class='form-control-label') }}
+          {{ comment_form.content(class='form-control') }}
+          {% if comment_form.content.errors %}
+            <div class="alert alert-danger mt-2">
+              {% for error in comment_form.content.errors %}
+                <span>{{ error }}</span>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Add Comment</button>
+      </form>
+      <hr>
+      <a href="/" class="btn btn-primary">Back to Home</a>
+    </div>
+  </div>
+  
+  <style>
+    /* Stylizacja komentarzy */
+    .comments {
+      margin-top: 20px;
+    }
+    
+    .comment {
+      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    
+    .comment p {
+      margin-bottom: 5px;
+    }
+    
+    .comment-timestamp {
+      font-style: italic;
+      color: #888;
+    }
+  </style>
+{% endblock %}
