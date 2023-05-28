@@ -6,14 +6,14 @@
     <div class="col-md-6">
       <h2>{{ post.title }}</h2>
       <p>{{ post.content }}</p>
-      <p>Author: {{ post.author.email }}</p>
-      <p>Created At: {{ post.created_at }}</p>
+      <p>Autor: {{ post.author.email }}</p>
+      <p>Utworzono: {{ post.created_at }}</p>
       <hr>
-      <h3>Comments</h3>
+      <h3>Komentarze</h3>
       {% for comment in post.comments %}
         <p>{{ comment.content }}</p>
-        <p>Author: {{ comment.author.email }}</p>
-        <p>Created At: {{ comment.timestamp }}</p>
+        <p>Autor: {{ comment.author.email }}</p>
+        <p>Dodano: {{ comment.timestamp }}</p>
         <hr>
       {% endfor %}
     </div>
