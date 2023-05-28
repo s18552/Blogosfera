@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, render_template, redirect, request, flash
+from flask import Flask, render_template, redirect, request, flash, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required
 from flask_wtf import FlaskForm
@@ -19,6 +19,8 @@ from flask_login import logout_user
 from datetime import datetime
 from flask_migrate import Migrate
 from flask import render_template
+import pytz
+
 
 
 
@@ -30,6 +32,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SECRET_KEY'] = 'secret-key'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+warsaw_tz = pytz.timezone('Europe/Warsaw')
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -49,7 +52,7 @@ class User(UserMixin, db.Model):
 
 # Forms
 class LoginForm(FlaskForm):
-    email = StringField('Email', validators=[DataRequired(), Email()])
+    email = StringField('Email', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Log In')
 
@@ -73,6 +76,11 @@ class ChangePasswordForm(FlaskForm):
     new_password = PasswordField('Nowe hasło', validators=[DataRequired(), Length(min=8)])
     confirm_password = PasswordField('Potwierdź nowe hasło', validators=[DataRequired(), EqualTo('new_password')])
     submit = SubmitField('Zmień hasło')
+    
+class PostForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired()])
+    content = TextAreaField('Content', validators=[DataRequired()])
+    submit = SubmitField('Submit')
 
 
 class Post(db.Model):
@@ -81,14 +89,17 @@ class Post(db.Model):
     content = db.Column(db.Text, nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     author = db.relationship('User', backref='posts')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(warsaw_tz))
+    
+
+    
 
 
 class Comment(db.Model):
     __tablename__ = 'comment'
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.now(warsaw_tz))
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
 
@@ -120,13 +131,18 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
-        if user and user.check_password(form.password.data):
+
+        if not user:
+            flash('Invalid email or password', 'error')
+        elif user.check_password(form.password.data):
             login_user(user)
             flash('Login successful!', 'success')
             return redirect(url_for('home'))
         else:
             flash('Invalid email or password', 'error')
+
     return render_template('login.html', form=form)
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -264,18 +280,6 @@ def create_post():
     return render_template('create_post.html', form=form)
 
 
-# @app.route('/post/<int:post_id>', methods=['GET', 'POST'])
-# def view_post(post_id):
-#     post = Post.query.get_or_404(post_id)
-#     comment_form = CommentForm()
-#     if comment_form.validate_on_submit():
-#         comment = Comment(content=comment_form.content.data, author=current_user, post=post)
-#         db.session.add(comment)
-#         db.session.commit()
-#         flash('Comment added successfully!', 'success')
-#         return redirect(url_for('view_post', post_id=post.id))
-#     return render_template('view_post.html', post=post, comment_form=comment_form)
-
 @app.route('/post/<int:post_id>')
 def view_post(post_id):
     post = Post.query.get_or_404(post_id)
@@ -297,7 +301,42 @@ def add_comment(post_id):
         flash_errors(form)
     return redirect(url_for('home'))
 
+@app.route('/edit_post/<int:post_id>', methods=['GET', 'POST', 'PUT'])
+@login_required
+def edit_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    if post.author != current_user:
+        abort(403)  # Odmowa dostępu, jeśli użytkownik nie jest autorem posta
 
+    form = PostForm(obj=post)
+    if form.validate_on_submit():
+        post.title = form.title.data
+        post.content = form.content.data
+        db.session.commit()
+        flash('Post has been updated!', 'success')
+        return redirect(url_for('home'))
+
+    return render_template('edit_post.html', post=post, edit_form=form)
+
+
+@app.route('/delete_post/<int:post_id>', methods=['GET', 'POST', 'DELETE'])
+@login_required
+def delete_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    if post.author != current_user:
+        abort(403)  # Odmowa dostępu, jeśli użytkownik nie jest autorem posta
+    
+    if request.method == 'POST' or request.method == 'DELETE':
+        comments= db.session.query(Comment).filter(Comment.post_id == post_id).all()
+        for comment in comments:
+            db.session.delete(comment)
+
+        db.session.delete(post)
+        db.session.commit()
+        flash('Post has been deleted!', 'success')
+        return redirect(url_for('home'))
+    
+    return render_template('delete_post.html', post=post)
 
 def flash_errors(form):
     for field, errors in form.errors.items():
@@ -308,9 +347,11 @@ def flash_errors(form):
 
 
 @app.route('/')
+@login_required
 def home():
     # Pobierz listę postów
-    posts = Post.query.all()
+    posts =  Post.query.order_by(Post.created_at.desc()).all()
+    
 
     # Utwórz formularz komentarza
     comment_form = CommentForm()

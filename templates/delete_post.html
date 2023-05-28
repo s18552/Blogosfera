@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Delete Post</h1>
+  <p>Are you sure you want to delete the following post?</p>
+  <h3>Title: {{ post.title }}</h3>
+  <p>Content: {{ post.content }}</p>
+
+  <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}" style="display: inline-block;">
+    <button type="submit" class="btn btn-danger">Delete</button>
+  </form>
+
+  <a href="{{ url_for('home') }}" class="btn btn-secondary">Cancel</a>
+{% endblock %}
